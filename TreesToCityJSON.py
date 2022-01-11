@@ -251,7 +251,8 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
                 newTile = Tile()
                 tiles[tileKey] = newTile
                 
-            tiles[tileKey].trees.append(treeData) 
+            tile = tiles[tileKey]
+            tile.trees.append(treeData)
                 
         print("Read trees: " + str(lineNr) + "")
 

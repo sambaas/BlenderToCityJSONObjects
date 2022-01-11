@@ -3,6 +3,7 @@ import bpy
 import csv
 import glob
 import os
+import math
 
 from mathutils import Vector
 from os import SEEK_CUR
@@ -209,7 +210,12 @@ class BinaryReader:
 
 sourcePathGroundTiles  = bpy.path.abspath("//SourceTiles/terrain_121000-486000-lod1.bin")
 sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
+outputPath = bpy.path.abspath("//Output/trees.json")
 
+class Tile(object):
+    x = 0
+    y = 0
+    trees = []
 
 class Tree(object):
     name = ""
@@ -218,12 +224,10 @@ class Tree(object):
 #RD stuff
 rd = Rijksdriehoek()
 
-print("Original coordinates in WGS’84: {},{}".format(str(52.3761973), str(4.8936216))) 
-rd.from_wgs(52.3761973, 4.8936216)
-print("Rijksdriehoek: {},{}".format(str(rd.rd_x), str(rd.rd_y))) 
-
 #Read tree data from CSV's
 trees = []
+tiles = {}
+
 for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
     with open(csvFile, 'r') as file:
         reader = csv.reader(file, delimiter=';')
@@ -233,19 +237,41 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
             if(lineNr == 0) or not (tree): 
                 continue
             
-            rdCoordinate = rd.from_wgs(float(tree[16]), float(tree[15]))
+            #convert WGS84 to RD
+            rd.from_wgs(float(tree[16]), float(tree[15]))
+            
+            #generate tree data
             treeData = Tree()
             treeData.name=tree[1]
-            treeData.RD = [rdCoordinate.rd_x,rdCoordinate.rd_y]
+            treeData.RD = [rd.rd_x,rd.rd_y]
             
-            print(treeData.RD)
-            #row.rdCoordinate = (treeRD.rd_x,treeRD.rd_y)
-            trees.append(treeData)
+            #move into proper rounded tile
+            tileX = math.floor(rd.rd_x / 1000) * 1000
+            tileY = math.floor(rd.rd_y / 1000) * 1000
+            tileKey = str(tileX)+"-"+str(tileY)
+
+            if tileKey in tiles:
+                tiles[tileKey].trees.append(treeData) 
+            else:
+                newTile = Tile()
+                newTile.trees.append(treeData) 
+                tiles[tileKey] = newTile
                 
-            
+        print("Read trees: " + str(lineNr) + "")
 
-print("Read trees: " + str(len(trees)) + "")
+print("Grouped into tiles: " + str(len(tiles)) + "")
 
+#Write CityJSON cityobject trees
+open(outputPath, 'w').close()
+
+f = open(outputPath, "a")
+f.write("{\"type\": \"CityJSON\", \"version\": \"1.0\", \"metadata\": {}, \"CityObjects\":")
+f.write("{")
+for tree in trees: 
+    f.write("\"" + tree.name+"\":{},")       
+f.write("}")
+f.write("\"transform\":{\"scale\": [0.001, 0.001, 0.001],\"translate\": [127804.416, 482444.148, -2.282]}")
+f.close()
 
 with open(sourcePathGroundTiles, "rb") as f:
     reader = BinaryReader(f)

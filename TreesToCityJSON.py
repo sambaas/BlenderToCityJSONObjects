@@ -210,11 +210,9 @@ class BinaryReader:
 
 sourcePathGroundTiles  = bpy.path.abspath("//SourceTiles/terrain_121000-486000-lod1.bin")
 sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
-outputPath = bpy.path.abspath("//Output/trees.json")
+outputPath = bpy.path.abspath("//Output/trees")
 
 class Tile(object):
-    x = 0
-    y = 0
     trees = []
 
 class Tree(object):
@@ -225,7 +223,6 @@ class Tree(object):
 rd = Rijksdriehoek()
 
 #Read tree data from CSV's
-trees = []
 tiles = {}
 
 for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
@@ -250,28 +247,32 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
             tileY = math.floor(rd.rd_y / 1000) * 1000
             tileKey = str(tileX)+"-"+str(tileY)
 
-            if tileKey in tiles:
-                tiles[tileKey].trees.append(treeData) 
-            else:
+            if tileKey not in tiles:
                 newTile = Tile()
-                newTile.trees.append(treeData) 
                 tiles[tileKey] = newTile
+                
+            tiles[tileKey].trees.append(treeData) 
                 
         print("Read trees: " + str(lineNr) + "")
 
 print("Grouped into tiles: " + str(len(tiles)) + "")
 
-#Write CityJSON cityobject trees
-open(outputPath, 'w').close()
-
-f = open(outputPath, "a")
-f.write("{\"type\": \"CityJSON\", \"version\": \"1.0\", \"metadata\": {}, \"CityObjects\":")
-f.write("{")
-for tree in trees: 
-    f.write("\"" + tree.name+"\":{},")       
-f.write("}")
-f.write("\"transform\":{\"scale\": [0.001, 0.001, 0.001],\"translate\": [127804.416, 482444.148, -2.282]}")
-f.close()
+for key in tiles:
+    #Write CityJSON cityobject trees
+    tileTreesFile = outputPath+key+",json"
+    
+    tileTrees = tiles[key].trees
+    print(key + " contains " + str(len(tileTrees)) + " trees")   
+    
+    open(tileTreesFile, 'w').close() #Clear existing content
+    f = open(tileTreesFile, "a")
+    f.write("{\"type\": \"CityJSON\", \"version\": \"1.0\", \"metadata\": {}, \"CityObjects\":")
+    f.write("{")
+    for tree in tileTrees: 
+        f.write("\"" + tree.name+"\":{},")       
+    f.write("}")
+    f.write("\"transform\":{\"scale\": [0.001, 0.001, 0.001],\"translate\": [127804.416, 482444.148, -2.282]}")
+    f.close()
 
 with open(sourcePathGroundTiles, "rb") as f:
     reader = BinaryReader(f)

@@ -1,5 +1,9 @@
 import struct
 import bpy
+import csv
+import glob
+import os
+
 from mathutils import Vector
 from os import SEEK_CUR
 from typing import BinaryIO
@@ -203,13 +207,47 @@ class BinaryReader:
 
 
 
-sourcePath  = bpy.path.abspath("//SourceTiles/terrain_121000-486000-lod1.bin")
+sourcePathGroundTiles  = bpy.path.abspath("//SourceTiles/terrain_121000-486000-lod1.bin")
+sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
 
-#Read CSV's
 
-#
+class Tree(object):
+    name = ""
+    RD = [0,0]
 
-with open(sourcePath, "rb") as f:
+#RD stuff
+rd = Rijksdriehoek()
+
+print("Original coordinates in WGS’84: {},{}".format(str(52.3761973), str(4.8936216))) 
+rd.from_wgs(52.3761973, 4.8936216)
+print("Rijksdriehoek: {},{}".format(str(rd.rd_x), str(rd.rd_y))) 
+
+#Read tree data from CSV's
+trees = []
+for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
+    with open(csvFile, 'r') as file:
+        reader = csv.reader(file, delimiter=';')
+        lineNr = -1
+        for tree in reader: 
+            lineNr += 1
+            if(lineNr == 0) or not (tree): 
+                continue
+            
+            rdCoordinate = rd.from_wgs(float(tree[16]), float(tree[15]))
+            treeData = Tree()
+            treeData.name=tree[1]
+            treeData.RD = [rdCoordinate.rd_x,rdCoordinate.rd_y]
+            
+            print(treeData.RD)
+            #row.rdCoordinate = (treeRD.rd_x,treeRD.rd_y)
+            trees.append(treeData)
+                
+            
+
+print("Read trees: " + str(len(trees)) + "")
+
+
+with open(sourcePathGroundTiles, "rb") as f:
     reader = BinaryReader(f)
     
     #binary data
@@ -278,11 +316,3 @@ with open(sourcePath, "rb") as f:
     success, rayHitLocation, normal, poly_index = new_object.ray_cast(ray_begin, ray_direction)
     print("cast_result:", rayHitLocation)
     bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', location=rayHitLocation, scale=(1, 1, 1))
-    
-    
-    # convert RD and other way around
-    rd = Rijksdriehoek()
-    
-    print("Original coordinates in WGS’84: {},{}".format(str(52.3761973), str(4.8936216))) 
-    rd.from_wgs(52.3761973, 4.8936216) 
-    print("Rijksdriehoek: {},{}".format(str(rd.rd_x), str(rd.rd_y))) 

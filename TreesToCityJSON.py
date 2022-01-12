@@ -249,6 +249,7 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
 
             if tileKey not in tiles:
                 newTile = Tile()
+                newTile.trees = []
                 tiles[tileKey] = newTile
                 
             tile = tiles[tileKey]
@@ -327,11 +328,10 @@ with open(sourcePathGroundTiles, "rb") as f:
 
     # make object from mesh
     new_object = bpy.data.objects.new('tile', new_mesh)
-    # make collection
-    new_collection = bpy.data.collections.new('new_collection')
-    bpy.context.scene.collection.children.link(new_collection)
+    # collection
+    collection = bpy.data.collections["Collection"]
     # add object to scene collection
-    new_collection.objects.link(new_object)
+    collection.objects.link(new_object)
     
     #determine height at a point
     ray_begin = Vector((0.5, 0, 100))
@@ -343,4 +343,6 @@ with open(sourcePathGroundTiles, "rb") as f:
     # do a ray cast on newly created plane
     success, rayHitLocation, normal, poly_index = new_object.ray_cast(ray_begin, ray_direction)
     print("cast_result:", rayHitLocation)
-    bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', location=rayHitLocation, scale=(1, 1, 1))
+    
+    #Add tree based on name
+    bpy.ops.object.add_named(linked=True,name="Tree", matrix=((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (rayHitLocation.x, rayHitLocation.y, rayHitLocation.z, 1)))

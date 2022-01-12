@@ -362,6 +362,8 @@ for key in tiles:
     verticesOutput = []
     indicesOutput = []
     currentVertexIndex = 0
+    totalTrees = len(tileTrees)
+    currentTree = 0
     for tree in tileTrees:
         #convert all vertex coordinates to tile local
         for triangle in tree.instancedObject.data.loop_triangles:
@@ -371,7 +373,7 @@ for key in tiles:
                 localVertLocation = tree.instancedObject.data.vertices[vertIndex].co
                 matrixWorld = tree.instancedObject.matrix_world
                 worldVertLocation = matrixWorld @ localVertLocation
-                vertexOutput = [worldVertLocation.x,worldVertLocation.y,worldVertLocation.z]
+                vertexOutput = [round(worldVertLocation.x,3),round(worldVertLocation.y,3),round(worldVertLocation.z,3)]
                 verticesOutput.append(vertexOutput)
             
         f.write("\"" + tree.name + "\":{")
@@ -382,8 +384,12 @@ for key in tiles:
         f.write("}],")
         f.write("\"type\":\"Vegetation\",")
         f.write("\"identificatie\":\"" + tree.name + "\"")
-        f.write("},")
+        f.write("}")
+        currentTree += 1
+        if(currentTree < totalTrees):
+            f.write(",")
     f.write("},")
     f.write("\"vertices\":" + str(verticesOutput) + ",")
     f.write("\"transform\":{\"scale\": [1, 1, 1],\"translate\": [" + str(tile.RD[0]-500) + ", " + str(tile.RD[1]-500) +", 0]}")
+    f.write("}")
     f.close()

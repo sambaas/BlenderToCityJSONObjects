@@ -4,6 +4,7 @@ import csv
 import glob
 import os
 import math
+import random
 
 from mathutils import Vector
 from os import SEEK_CUR
@@ -208,16 +209,18 @@ class BinaryReader:
 
 
 
-sourcePathGroundTiles  = bpy.path.abspath("//SourceTiles/terrain_121000-486000-lod1.bin")
+sourcePathGroundTiles  = bpy.path.abspath("//SourceTiles/")
 sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
 outputPath = bpy.path.abspath("//Output/trees")
 
 class Tile(object):
     trees = []
+    RD = [0,0]
 
 class Tree(object):
     name = ""
     RD = [0,0]
+    instancedObject = None
 
 #RD stuff
 rd = Rijksdriehoek()
@@ -239,7 +242,7 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
             
             #generate tree data
             treeData = Tree()
-            treeData.name=tree[1]
+            treeData.name = tree[0]
             treeData.RD = [rd.rd_x,rd.rd_y]
             
             #move into proper rounded tile
@@ -250,9 +253,11 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
             if tileKey not in tiles:
                 newTile = Tile()
                 newTile.trees = []
+                newTile.RD = [tileX,tileY]
                 tiles[tileKey] = newTile
                 
             tile = tiles[tileKey]
+            tile.RD = [tileX,tileY]
             tile.trees.append(treeData)
                 
         print("Read trees: " + str(lineNr) + "")
@@ -261,88 +266,124 @@ print("Grouped into tiles: " + str(len(tiles)) + "")
 
 for key in tiles:
     #Write CityJSON cityobject trees
-    tileTreesFile = outputPath+key+",json"
+    tileTreesFile = outputPath+key+".json"
     
-    tileTrees = tiles[key].trees
+    tile = tiles[key]
+    tileTrees = tile.trees
     print(key + " contains " + str(len(tileTrees)) + " trees")   
     
+    #Load existing tree tile
+    tileMeshPath = sourcePathGroundTiles + "/terrain_"+ key +"-lod1.bin"
+    if not os.path.isfile(tileMeshPath):
+        continue    
+    else:
+        print(key + " as ground mesh.")
+    
+    with open(tileMeshPath, "rb") as f:
+        reader = BinaryReader(f)
+        
+        #binary data
+        version = reader.read_int()
+        vertexCount = reader.read_int()
+        normalsCount = reader.read_int()
+        uvsCount = reader.read_int()
+        indicesCount = reader.read_int()
+        submeshCount = reader.read_int()
+        
+        vertices = []
+        indices = []
+        
+        for i in range(vertexCount):
+            vX = reader.read_float()
+            vY = reader.read_float()
+            vZ = reader.read_float()
+            vertices.append((vX,vZ,vY)) #flip Z and Y
+        
+        for i in range(normalsCount):
+            vnX = reader.read_float()
+            vnY = reader.read_float()
+            vnZ = reader.read_float()
+            
+        for i in range(uvsCount):
+            uvX = reader.read_float()
+            uvY = reader.read_float()
+        
+        for i in range(indicesCount):
+            index = reader.read_int()
+            indices.append(index)
+            
+        #add every triangle to face mesh
+        facesCount = int(indicesCount / 3)
+        print("vertices " + str(vertexCount))
+        print("faces " + str(facesCount))
+        faces = []
+        for i in range(indicesCount):
+            if((i % 3) == 0):
+                pointA = indices[i]
+                pointB = indices[i+1]
+                pointC = indices[i+2]
+                triangle = (pointA,pointB,pointC)
+                faces.append(triangle)
+              
+        #read into new mesh      
+        new_mesh = bpy.data.meshes.new('tile')
+        new_mesh.from_pydata(vertices,[],faces) 
+
+        # make object from mesh
+        new_object = bpy.data.objects.new('tile', new_mesh)
+        # collection
+        collection = bpy.data.collections["Collection"]
+        # add object to scene collection
+        collection.objects.link(new_object)
+        
+        for tree in tileTrees:
+            #determine height at a point
+            coordinateInTileX = tree.RD[0] - (tile.RD[0] + 500)
+            coordinateInTileY = tree.RD[1] - (tile.RD[1] + 500)
+            
+            #print("Planting tree at : " + str(coordinateInTileX) + "," + str(coordinateInTileY))
+            ray_begin = Vector((coordinateInTileX, coordinateInTileY, 100))
+            ray_direction = Vector((0,0,-1)) #Down            
+            # do a ray cast on newly created plane
+            success, rayHitLocation, normal, poly_index = new_object.ray_cast(ray_begin, ray_direction)
+             
+            #Add tree based on name
+            bpy.ops.object.add_named(linked=True,name="Tree", matrix=((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (rayHitLocation.x, rayHitLocation.y, rayHitLocation.z, 1)))
+            tree.instancedObject = bpy.context.object
+            bpy.context.object.data.calc_loop_triangles()
+            randomRotation=random.uniform(0,6.2)
+            bpy.ops.transform.rotate(value=randomRotation, orient_axis='Z')
+            
+    #Write CityJSON
     open(tileTreesFile, 'w').close() #Clear existing content
     f = open(tileTreesFile, "a")
     f.write("{\"type\": \"CityJSON\", \"version\": \"1.0\", \"metadata\": {}, \"CityObjects\":")
     f.write("{")
-    for tree in tileTrees: 
-        f.write("\"" + tree.name+"\":{},")       
-    f.write("}")
-    f.write("\"transform\":{\"scale\": [0.001, 0.001, 0.001],\"translate\": [127804.416, 482444.148, -2.282]}")
+    verticesOutput = []
+    indicesOutput = []
+    currentVertexIndex = 0
+    for tree in tileTrees:
+        #convert all vertex coordinates to tile local
+        for triangle in tree.instancedObject.data.loop_triangles:
+            indicesOutput.append([[currentVertexIndex,currentVertexIndex+1,currentVertexIndex+2]])
+            currentVertexIndex += 3
+            for vertIndex in triangle.vertices:
+                localVertLocation = tree.instancedObject.data.vertices[vertIndex].co
+                matrixWorld = tree.instancedObject.matrix_world
+                worldVertLocation = matrixWorld @ localVertLocation
+                vertexOutput = [worldVertLocation.x,worldVertLocation.y,worldVertLocation.z]
+                verticesOutput.append(vertexOutput)
+            
+        f.write("\"" + tree.name + "\":{")
+        f.write("\"geometry\": [{")
+        f.write("\"type\":\"MultiSurface\",")
+        f.write("\"boundaries\":[ " + str(indicesOutput) + "],")
+        f.write("\"lod\":1")
+        f.write("}],")
+        f.write("\"type\":\"Vegetation\",")
+        f.write("\"identificatie\":\"" + tree.name + "\"")
+        f.write("},")
+    f.write("},")
+    f.write("\"vertices\":" + str(verticesOutput) + ",")
+    f.write("\"transform\":{\"scale\": [1, 1, 1],\"translate\": [" + str(tile.RD[0]-500) + ", " + str(tile.RD[1]-500) +", 0]}")
     f.close()
-
-with open(sourcePathGroundTiles, "rb") as f:
-    reader = BinaryReader(f)
-    
-    #binary data
-    version = reader.read_int()
-    vertexCount = reader.read_int()
-    normalsCount = reader.read_int()
-    uvsCount = reader.read_int()
-    indicesCount = reader.read_int()
-    submeshCount = reader.read_int()
-    
-    vertices = []
-    indices = []
-    
-    for i in range(vertexCount):
-        vX = reader.read_float()
-        vY = reader.read_float()
-        vZ = reader.read_float()
-        vertices.append((vX,vZ,vY)) #flip Z and Y
-    
-    for i in range(normalsCount):
-        vnX = reader.read_float()
-        vnY = reader.read_float()
-        vnZ = reader.read_float()
-        
-    for i in range(uvsCount):
-        uvX = reader.read_float()
-        uvY = reader.read_float()
-    
-    for i in range(indicesCount):
-        index = reader.read_int()
-        indices.append(index)
-        
-    #add every triangle to face mesh
-    facesCount = int(indicesCount / 3)
-    print("vertices " + str(vertexCount))
-    print("faces " + str(facesCount))
-    faces = []
-    for i in range(indicesCount):
-        if((i % 3) == 0):
-            pointA = indices[i]
-            pointB = indices[i+1]
-            pointC = indices[i+2]
-            triangle = (pointA,pointB,pointC)
-            faces.append(triangle)
-          
-    #read into new mesh      
-    new_mesh = bpy.data.meshes.new('tile')
-    new_mesh.from_pydata(vertices,[],faces) 
-
-    # make object from mesh
-    new_object = bpy.data.objects.new('tile', new_mesh)
-    # collection
-    collection = bpy.data.collections["Collection"]
-    # add object to scene collection
-    collection.objects.link(new_object)
-    
-    #determine height at a point
-    ray_begin = Vector((0.5, 0, 100))
-    ray_end = Vector((0.5, 0,-100))
-    ray_direction = ray_end - ray_begin
-    ray_direction.normalize()
-    # covert ray_begin to "plane_ob" local space
-    
-    # do a ray cast on newly created plane
-    success, rayHitLocation, normal, poly_index = new_object.ray_cast(ray_begin, ray_direction)
-    print("cast_result:", rayHitLocation)
-    
-    #Add tree based on name
-    bpy.ops.object.add_named(linked=True,name="Tree", matrix=((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (rayHitLocation.x, rayHitLocation.y, rayHitLocation.z, 1)))

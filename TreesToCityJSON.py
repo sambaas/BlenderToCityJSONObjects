@@ -207,6 +207,10 @@ class BinaryReader:
     def read_uint(self) -> int:
         return self.read_uint32()
 
+#Start ---------------------------------------------------
+#Clear scene
+bpy.ops.object.select_all(action='SELECT')
+bpy.ops.object.delete(use_global=False, confirm=False)
 
 
 sourcePathGroundTiles  = bpy.path.abspath("//SourceTiles/")
@@ -361,33 +365,53 @@ for key in tiles:
     f.write("{")
     verticesOutput = []
     indicesOutput = []
+    uvIndicesOutput = []
+    uvsOutput = []
     currentVertexIndex = 0
     totalTrees = len(tileTrees)
     currentTree = 0
+    maxTrees = 20 #handy for testing
+    
     for tree in tileTrees:
         #convert all vertex coordinates to tile local
         for triangle in tree.instancedObject.data.loop_triangles:
             indicesOutput.append([[currentVertexIndex,currentVertexIndex+1,currentVertexIndex+2]])
+            
+            #every triangle is preceeded by an integer refering to texture index
+            uvIndicesOutput.append([[0,currentVertexIndex,currentVertexIndex+1,currentVertexIndex+2]])
+            
             currentVertexIndex += 3
             for vertIndex in triangle.vertices:
                 localVertLocation = tree.instancedObject.data.vertices[vertIndex].co
+                uvLocation = tree.instancedObject.data.uv_layers.active.data[vertIndex].uv
+                
                 matrixWorld = tree.instancedObject.matrix_world
                 worldVertLocation = matrixWorld @ localVertLocation
                 vertexOutput = [round(worldVertLocation.x,3),round(worldVertLocation.y,3),round(worldVertLocation.z,3)]
+                uvOutput = [round(uvLocation.x,5),round(uvLocation.y,5)]
+                
                 verticesOutput.append(vertexOutput)
+                uvsOutput.append(uvOutput)
             
         f.write("\"" + tree.name + "\":{")
-        f.write("\"geometry\": [{")
+        f.write("\"geometry\": [{") #geometry start
         f.write("\"type\":\"MultiSurface\",")
-        f.write("\"boundaries\":[ " + str(indicesOutput) + "],")
-        f.write("\"lod\":1")
-        f.write("}],")
+        f.write("\"lod\":1,")
+        f.write("\"boundaries\":" + str(indicesOutput) + ",")
+        f.write("\"texture\":{\"summer-textures\":{\"values\":" + str(uvIndicesOutput) + "}}")
+        f.write("}],") #geometry end
         f.write("\"type\":\"Vegetation\",")
         f.write("\"identificatie\":\"" + tree.name + "\"")
         f.write("}")
         currentTree += 1
+        if(currentTree >= maxTrees):
+            break
         if(currentTree < totalTrees):
             f.write(",")
+    f.write("},")
+    f.write("\"appearance\":{")
+    f.write("\"textures\":[{\"type\":\"PNG\",\"image\":\"trees.png\"}],")
+    f.write("\"vertices-texture\":" + str(uvsOutput) + "")
     f.write("},")
     f.write("\"vertices\":" + str(verticesOutput) + ",")
     f.write("\"transform\":{\"scale\": [1, 1, 1],\"translate\": [" + str(tile.RD[0]-500) + ", " + str(tile.RD[1]-500) +", 0]}")

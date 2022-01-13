@@ -208,11 +208,6 @@ class BinaryReader:
         return self.read_uint32()
 
 #Start ---------------------------------------------------
-#Clear scene
-bpy.ops.object.select_all(action='SELECT')
-bpy.ops.object.delete(use_global=False, confirm=False)
-
-
 sourcePathGroundTiles  = bpy.path.abspath("//SourceTiles/")
 sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
 outputPath = bpy.path.abspath("//Output/trees")
@@ -225,6 +220,13 @@ class Tree(object):
     name = ""
     RD = [0,0]
     instancedObject = None
+
+#Clear scene
+def ClearScene():  
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.delete(use_global=False, confirm=False)
+
+ClearScene()
 
 #RD stuff
 rd = Rijksdriehoek()
@@ -364,15 +366,16 @@ for key in tiles:
     f.write("{\"type\": \"CityJSON\", \"version\": \"1.0\", \"metadata\": {}, \"CityObjects\":")
     f.write("{")
     verticesOutput = []
-    indicesOutput = []
-    uvIndicesOutput = []
     uvsOutput = []
     currentVertexIndex = 0
     totalTrees = len(tileTrees)
     currentTree = 0
-    maxTrees = 20 #handy for testing
+    maxTrees = 0 #handy for testing
     
     for tree in tileTrees:
+        #Clear indices and UV list for every tree (unqique)
+        indicesOutput = []
+        uvIndicesOutput = []
         #convert all vertex coordinates to tile local
         for triangle in tree.instancedObject.data.loop_triangles:
             indicesOutput.append([[currentVertexIndex,currentVertexIndex+1,currentVertexIndex+2]])
@@ -404,7 +407,7 @@ for key in tiles:
         f.write("\"identificatie\":\"" + tree.name + "\"")
         f.write("}")
         currentTree += 1
-        if(currentTree >= maxTrees):
+        if maxTrees != 0 and (currentTree >= maxTrees):
             break
         if(currentTree < totalTrees):
             f.write(",")
@@ -417,3 +420,8 @@ for key in tiles:
     f.write("\"transform\":{\"scale\": [1, 1, 1],\"translate\": [" + str(tile.RD[0]-500) + ", " + str(tile.RD[1]-500) +", 0]}")
     f.write("}")
     f.close()
+    
+    ClearScene()
+    
+print(" ")
+print("All done!")

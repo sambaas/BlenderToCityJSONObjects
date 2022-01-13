@@ -208,7 +208,7 @@ class BinaryReader:
         return self.read_uint32()
 
 #Start ---------------------------------------------------
-sourcePathGroundTiles  = bpy.path.abspath("//SourceTiles/")
+sourcePathGroundTiles  = bpy.path.abspath("C:/Users/Sam/Desktop/binaryconvert/terrain1.0/")
 sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
 outputPath = bpy.path.abspath("//Output/trees")
 

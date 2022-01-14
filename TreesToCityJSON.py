@@ -208,7 +208,7 @@ class BinaryReader:
         return self.read_uint32()
 
 #Start ---------------------------------------------------
-sourcePathGroundTiles  = bpy.path.abspath("C:/Users/Sam/Desktop/binaryconvert/terrain1.0/")
+sourcePathGroundTiles  = bpy.path.abspath("C:/Projects/GemeenteAmsterdam/Docs/Blender/BomenNaarCityJSON/SourceTiles/")
 sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
 outputPath = bpy.path.abspath("//Output/trees")
 
@@ -225,7 +225,28 @@ class Tree(object):
 def ClearScene():  
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False, confirm=False)
+    for block in bpy.data.meshes:
+        if block.users == 0:
+            bpy.data.meshes.remove(block)
 
+def GetVisual(description):
+    objectName = description.replace(" (cultuurvariëteit)","")
+    visuals = bpy.data.collections["Trees"].all_objects
+    if objectName in visuals:
+        return visuals[objectName]
+    return visuals["Onbekend"]          
+ 
+def EstimateHeight(heightDescription):
+    possibleNumbers = heightDescription.split(" ")
+    height = 0
+    numbersFoundInString = 0
+    for number in possibleNumbers:
+        if number.isnumeric():
+            height += float(number)
+            numbersFoundInString += 1
+    height = height / numbersFoundInString
+    return height      
+    
 ClearScene()
 
 #RD stuff
@@ -249,6 +270,8 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
             #generate tree data
             treeData = Tree()
             treeData.name = tree[0]
+            treeData.height = EstimateHeight(tree[5])
+            treeData.visual = GetVisual(tree[1])
             treeData.RD = [rd.rd_x,rd.rd_y]
             
             #move into proper rounded tile
@@ -268,9 +291,14 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
                 
         print("Read trees: " + str(lineNr) + "")
 
-print("Grouped into tiles: " + str(len(tiles)) + "")
+totalTiles = len(tiles)
+currentTile = 0
+print("Grouped into tiles: " + str(totalTiles) + "")
 
 for key in tiles:
+    currentTile += 1
+    print("Tile: " + str(currentTile) + "/" + str(totalTiles))
+    
     #Write CityJSON cityobject trees
     tileTreesFile = outputPath+key+".json"
     
@@ -283,7 +311,7 @@ for key in tiles:
     if not os.path.isfile(tileMeshPath):
         continue    
     else:
-        print(key + " as ground mesh.")
+        print(tileMeshPath)
     
     with open(tileMeshPath, "rb") as f:
         reader = BinaryReader(f)
@@ -359,6 +387,7 @@ for key in tiles:
             bpy.context.object.data.calc_loop_triangles()
             randomRotation=random.uniform(0,6.2)
             bpy.ops.transform.rotate(value=randomRotation, orient_axis='Z')
+            bpy.ops.transform.resize(value=(tree.height, tree.height, tree.height), orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', mirror=False, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False)
             
     #Write CityJSON
     open(tileTreesFile, 'w').close() #Clear existing content
@@ -370,7 +399,7 @@ for key in tiles:
     currentVertexIndex = 0
     totalTrees = len(tileTrees)
     currentTree = 0
-    maxTrees = 0 #handy for testing
+    maxTrees = 20 #handy for testing
     
     for tree in tileTrees:
         #Clear indices and UV list for every tree (unqique)

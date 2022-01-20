@@ -219,6 +219,7 @@ class Tile(object):
 class Tree(object):
     name = ""
     RD = [0,0]
+    visual = None
     instancedObject = None
 
 #Clear scene
@@ -241,9 +242,15 @@ def EstimateHeight(heightDescription):
     height = 0
     numbersFoundInString = 0
     for number in possibleNumbers:
-        if number.isnumeric():
-            height += float(number)
+        cleanNumber = number.replace("m.","")
+        if cleanNumber.isnumeric():
+            height += float(cleanNumber)
             numbersFoundInString += 1
+    
+    #No height found? Use average tree height
+    if height==0:
+        return 8        
+    
     height = height / numbersFoundInString
     return height      
     
@@ -382,13 +389,15 @@ for key in tiles:
             success, rayHitLocation, normal, poly_index = new_object.ray_cast(ray_begin, ray_direction)
              
             #Add tree based on name
-            bpy.ops.object.add_named(linked=True,name="Tree", matrix=((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (rayHitLocation.x, rayHitLocation.y, rayHitLocation.z, 1)))
+            bpy.ops.object.add_named(linked=True,name=tree.visual.name, matrix=((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (rayHitLocation.x, rayHitLocation.y, rayHitLocation.z, 1)))
             tree.instancedObject = bpy.context.object
-            bpy.context.object.data.calc_loop_triangles()
-            randomRotation=random.uniform(0,6.2)
-            bpy.ops.transform.rotate(value=randomRotation, orient_axis='Z')
-            bpy.ops.transform.resize(value=(tree.height, tree.height, tree.height), orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', mirror=False, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False)
+            tree.instancedObject.data.calc_loop_triangles()
             
+            randomRotation=random.uniform(0,6.2)
+            tree.instancedObject.rotation_euler[0] = 1.5708
+            tree.instancedObject.rotation_euler[2] = randomRotation
+            tree.instancedObject.scale = [tree.height,tree.height,tree.height]
+    
     #Write CityJSON
     open(tileTreesFile, 'w').close() #Clear existing content
     f = open(tileTreesFile, "a")
@@ -399,7 +408,7 @@ for key in tiles:
     currentVertexIndex = 0
     totalTrees = len(tileTrees)
     currentTree = 0
-    maxTrees = 20 #handy for testing
+    maxTrees = 0 #handy for testing
     
     for tree in tileTrees:
         #Clear indices and UV list for every tree (unqique)

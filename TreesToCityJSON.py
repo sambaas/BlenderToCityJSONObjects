@@ -210,7 +210,7 @@ class BinaryReader:
 #Start ---------------------------------------------------
 sourcePathGroundTiles  = bpy.path.abspath("C:/Projects/GemeenteAmsterdam/Docs/Blender/BomenNaarCityJSON/SourceTiles/")
 sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
-outputPath = bpy.path.abspath("//Output/trees")
+outputPath = bpy.path.abspath("//OutputSimple/trees")
 
 class Tile(object):
     trees = []
@@ -305,7 +305,7 @@ print("Grouped into tiles: " + str(totalTiles) + "")
 for key in tiles:
     currentTile += 1
     print("Tile: " + str(currentTile) + "/" + str(totalTiles))
-    
+            
     #Write CityJSON cityobject trees
     tileTreesFile = outputPath+key+".json"
     
@@ -415,24 +415,26 @@ for key in tiles:
         indicesOutput = []
         uvIndicesOutput = []
         #convert all vertex coordinates to tile local
-        for triangle in tree.instancedObject.data.loop_triangles:
+                
+        for triangle in tree.instancedObject.data.loop_triangles:            
             indicesOutput.append([[currentVertexIndex,currentVertexIndex+1,currentVertexIndex+2]])
             
             #every triangle is preceeded by an integer refering to texture index
-            uvIndicesOutput.append([[0,currentVertexIndex,currentVertexIndex+1,currentVertexIndex+2]])
-            
+            uvIndicesOutput.append([[0,currentVertexIndex,currentVertexIndex+1,currentVertexIndex+2]])        
             currentVertexIndex += 3
-            for vertIndex in triangle.vertices:
-                localVertLocation = tree.instancedObject.data.vertices[vertIndex].co
-                uvLocation = tree.instancedObject.data.uv_layers.active.data[vertIndex].uv
-                
+                        
+            for loopIndex in triangle.loops:
+                vertexIndex = tree.instancedObject.data.loops[loopIndex].vertex_index
+                localVertLocation = tree.instancedObject.data.vertices[vertexIndex].co
                 matrixWorld = tree.instancedObject.matrix_world
                 worldVertLocation = matrixWorld @ localVertLocation
                 vertexOutput = [round(worldVertLocation.x,3),round(worldVertLocation.y,3),round(worldVertLocation.z,3)]
+                
+                uvLocation = tree.instancedObject.data.uv_layers.active.data[loopIndex].uv
                 uvOutput = [round(uvLocation.x,5),round(uvLocation.y,5)]
                 
-                verticesOutput.append(vertexOutput)
                 uvsOutput.append(uvOutput)
+                verticesOutput.append(vertexOutput)
             
         f.write("\"" + tree.name + "\":{")
         f.write("\"geometry\": [{") #geometry start
@@ -455,7 +457,7 @@ for key in tiles:
     f.write("\"vertices-texture\":" + str(uvsOutput) + "")
     f.write("},")
     f.write("\"vertices\":" + str(verticesOutput) + ",")
-    f.write("\"transform\":{\"scale\": [1, 1, 1],\"translate\": [" + str(tile.RD[0]-500) + ", " + str(tile.RD[1]-500) +", 0]}")
+    f.write("\"transform\":{\"scale\": [1, 1, 1],\"translate\": [" + str(tile.RD[0]+500) + ", " + str(tile.RD[1]+500) +", 0]}")
     f.write("}")
     f.close()
     

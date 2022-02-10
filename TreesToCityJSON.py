@@ -443,7 +443,7 @@ for key in tiles:
         f.write("\"boundaries\":" + str(indicesOutput) + ",")
         f.write("\"texture\":{\"summer-textures\":{\"values\":" + str(uvIndicesOutput) + "}}")
         f.write("}],") #geometry end
-        f.write("\"type\":\"SolitaryVegetationObject\",")
+        f.write("\"type\":\"Vegetation\",")
         f.write("\"identificatie\":\"" + tree.name + "\"")
         f.write("}")
         currentTree += 1

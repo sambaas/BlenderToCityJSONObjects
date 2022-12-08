@@ -1,5 +1,4 @@
-Output
-OutputBin
-OutputCityJSON
-SourceTiles
-TextureSource
+CSVs/*
+Blender3.2/*
+GroundTiles/*
+OutputCityJSON/*

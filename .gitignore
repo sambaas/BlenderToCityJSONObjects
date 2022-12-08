@@ -1,4 +1,9 @@
-CSVs/*
+# Exclude folders
 Blender3.2/*
 GroundTiles/*
 OutputCityJSON/*
+
+# Exceptions
+!Blender3.2/.gitkeep 
+!GroundTiles/.gitkeep 
+!OutputCityJSON/.gitkeep 

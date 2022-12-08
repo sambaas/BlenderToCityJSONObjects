@@ -10,6 +10,13 @@ from mathutils import Vector
 from os import SEEK_CUR
 from typing import BinaryIO
 
+#Start ---------------------------------------------------
+sourcePathGroundTiles  = bpy.path.abspath("//GroundTiles/")
+sourcePathCSV  = bpy.path.abspath("//CSVs/")
+outputPath = bpy.path.abspath("//OutputCityJSON/trees")
+
+debug = False
+
 class Rijksdriehoek:
   def __init__(self, rd_x = None, rd_y = None):
     self.rd_x = rd_x
@@ -207,11 +214,6 @@ class BinaryReader:
     def read_uint(self) -> int:
         return self.read_uint32()
 
-#Start ---------------------------------------------------
-sourcePathGroundTiles  = bpy.path.abspath("C:/Projects/GemeenteAmsterdam/Docs/Blender/BomenNaarCityJSON/SourceTiles/")
-sourcePathCSV  = bpy.path.abspath("//SourceCSV/")
-outputPath = bpy.path.abspath("//OutputSimple/trees")
-
 class Tile(object):
     trees = []
     RD = [0,0]
@@ -238,11 +240,12 @@ def GetVisual(description):
     return visuals["Onbekend"]          
  
 def EstimateHeight(heightDescription):
-    possibleNumbers = heightDescription.split(" ")
+    #lets remove the garbage from the string like '6-8 m.'
+    possibleNumbers = heightDescription.replace(" ","").replace("m","").replace("<","").replace(">","").split("-")
     height = 0
     numbersFoundInString = 0
     for number in possibleNumbers:
-        cleanNumber = number.replace("m.","")
+        cleanNumber = number
         if cleanNumber.isnumeric():
             height += float(cleanNumber)
             numbersFoundInString += 1
@@ -268,16 +271,23 @@ for csvFile in glob.glob(os.path.join(sourcePathCSV, '*.csv')):
         lineNr = -1
         for tree in reader: 
             lineNr += 1
-            if(lineNr == 0) or not (tree): 
+            if(lineNr == 0) or not (tree) or not (len(tree) > 4): 
                 continue
             
-            #convert WGS84 to RD
-            rd.from_wgs(float(tree[16]), float(tree[15]))
+            #Get RD coordinates directly from CVS (its not in WGS84)
+            if tree[3] =='':
+                tree[3] = "0"
+            
+            if tree[4] =='':
+                tree[4] = "0"
+            
+            rd.rd_x = float(tree[3])
+            rd.rd_y = float(tree[4])
             
             #generate tree data
             treeData = Tree()
             treeData.name = tree[0]
-            treeData.height = EstimateHeight(tree[5])
+            treeData.height = EstimateHeight(tree[2])
             treeData.visual = GetVisual(tree[1])
             treeData.RD = [rd.rd_x,rd.rd_y]
             
@@ -316,6 +326,7 @@ for key in tiles:
     #Load existing tree tile
     tileMeshPath = sourcePathGroundTiles + "/terrain_"+ key +"-lod1.bin"
     if not os.path.isfile(tileMeshPath):
+        print("Could not find " + tileMeshPath)   
         continue    
     else:
         print(tileMeshPath)
@@ -461,7 +472,10 @@ for key in tiles:
     f.write("}")
     f.close()
     
-    ClearScene()
+    if(debug):
+        break
+    else:
+        ClearScene()
     
 print(" ")
 print("All done!")

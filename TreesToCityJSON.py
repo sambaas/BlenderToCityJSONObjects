@@ -324,7 +324,7 @@ for key in tiles:
     print(key + " contains " + str(len(tileTrees)) + " trees")   
     
     #Load existing tree tile
-    tileMeshPath = sourcePathGroundTiles + "/terrain_"+ key +"-lod1.bin"
+    tileMeshPath = sourcePathGroundTiles + "terrain_"+ key +"-lod1.bin"
     if not os.path.isfile(tileMeshPath):
         print("Could not find " + tileMeshPath)   
         continue    

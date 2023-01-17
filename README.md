@@ -1,5 +1,8 @@
 # Bomen CityJSON genereren adhv. maaiveld hoogte
 
+Dit python script + Blender bestand maakt het mogelijk om CityJSONs te genereren met daarin 'lowpoly' bomen.
+De RD locatie en type van de bomen wordt uit CSV bestan(den) gehaald, en de hoogte wordt bepaald aan de hand van 3D tegels gegenereerd met de TileBakeTool (https://github.com/Amsterdam/CityDataToBinaryModel)
+
 Begin met het clonen van deze repo in een map:
 
 git clone https://github.com/sambaas/BlenderToCityJSONObjects.git
